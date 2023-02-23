@@ -1,9 +1,14 @@
 import librosa
 import threading
 import numpy as np
-
 import sounddevice as sd
 import soundfile as sf
+
+# Global variables
+current_frame = 0
+start_time = 0
+beat_index = 0
+activity_counter = 0
 
 y, sr = librosa.load("../sample2.mp3", duration=20)
 # y, sr = librosa.load(librosa.example('brahms'))
@@ -17,10 +22,6 @@ tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
 beat_times = librosa.frames_to_time(beats, sr=sr)
 clicks = librosa.clicks(frames=beats, sr=sr, length=len(y))
 
-
-event = threading.Event()
-
-
 # Reshape arrays to have two channels  (2 columns)
 y = np.reshape(y, (-1, 1))
 y = np.column_stack((y, y))
@@ -32,28 +33,21 @@ clicks = np.column_stack((clicks, clicks))
 # Add in clicks
 y = y + clicks 
 
-# def print_beats(current_frame)
 
-current_frame = 0
-start_time = 0
-beat_index = 0
-activity_counter = 0
+event = threading.Event()
 
-def callback(outdata, frames, time, status):
-	global current_frame
-	global beat_index
+def print_realtime_beats(time, current_frame):
 	global start_time
+	global beat_index
 	global activity_counter
 
-	if status:
-		print(status)
 	if start_time == 0:
 		start_time = time.outputBufferDacTime
-		print("start: {}".format(start_time))
+		# print("start: {}".format(start_time))
 
 	if beat_index < len(beat_times) - 1:
 		current_time = time.outputBufferDacTime
-		# print(current_time)
+
 		next_beat_time = start_time + beat_times[beat_index]
 		if current_time >= next_beat_time:
 			if beat_index % 8 == 0:
@@ -63,12 +57,25 @@ def callback(outdata, frames, time, status):
 				print("\tBEAT {}".format(beat_index))
 			beat_index += 1
 
+
+def callback(outdata, frames, time, status):
+	global current_frame
+
+	# Print any status messages
+	if status:
+		print(status)
+
+	# Print beats in real time
+	print_realtime_beats(time, current_frame)
+
+	# Calculate the chunksize, accounting for the length of the data
 	chunksize = min(len(y) - current_frame, frames)
-	# print(current_frame)
-	# outdata[:chunksize] = y[current_frame:current_frame + chunksize]
-	# print(time.outputBufferDacTime)
+	print("chunksize: {}  frames: {}".format(chunksize, frames))
+
+	# Add the next chunk to the output stream
 	outdata[:chunksize] = y[current_frame:current_frame + chunksize]
-	# outdata[:] = y.reshape(-1, 1)
+
+	# If at the end of the song, stop the callback
 	if chunksize < frames:
 		outdata[chunksize:] = 0
 		raise sd.CallbackStop()
