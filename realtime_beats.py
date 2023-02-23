@@ -10,7 +10,7 @@ start_time = 0
 beat_index = 0
 activity_counter = 0
 
-y, sr = librosa.load("../sample2.mp3", duration=20)
+y, sr = librosa.load("../sample2.mp3", duration=30)
 # y, sr = librosa.load(librosa.example('brahms'))
 # y, sr = librosa.load(librosa.example('choice'))
 # y, sr = librosa.load(librosa.example('fishin'))
@@ -43,12 +43,12 @@ def print_realtime_beats(time, current_frame):
 
 	if start_time == 0:
 		start_time = time.outputBufferDacTime
-		# print("start: {}".format(start_time))
 
 	if beat_index < len(beat_times) - 1:
 		current_time = time.outputBufferDacTime
 
 		next_beat_time = start_time + beat_times[beat_index]
+		
 		if current_time >= next_beat_time:
 			if beat_index % 8 == 0:
 				print("Movement {}".format(activity_counter))
@@ -70,7 +70,6 @@ def callback(outdata, frames, time, status):
 
 	# Calculate the chunksize, accounting for the length of the data
 	chunksize = min(len(y) - current_frame, frames)
-	print("chunksize: {}  frames: {}".format(chunksize, frames))
 
 	# Add the next chunk to the output stream
 	outdata[:chunksize] = y[current_frame:current_frame + chunksize]
